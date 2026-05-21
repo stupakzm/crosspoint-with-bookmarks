@@ -1,5 +1,6 @@
 .pio
 .idea
+BUILD.md
 .DS_Store
 .vscode
 lib/EpdFont/fontsrc
