@@ -54,8 +54,18 @@ struct FilePathResult {
   std::string path;
 };
 
+struct BookmarkListResult {
+  int selectedIndex = 0;
+};
+
+struct BookmarkPreviewResult {
+  enum class Action { GOTO, REMOVE } action = Action::GOTO;
+  int bookmarkIndex = 0;
+};
+
 using ResultVariant = std::variant<std::monostate, WifiResult, KeyboardResult, MenuResult, ChapterResult, PercentResult,
-                                   PageResult, SyncResult, NetworkModeResult, FootnoteResult, FilePathResult>;
+                                   PageResult, SyncResult, NetworkModeResult, FootnoteResult, FilePathResult,
+                                   BookmarkListResult, BookmarkPreviewResult>;
 
 struct ActivityResult {
   bool isCancelled = false;

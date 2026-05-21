@@ -10,9 +10,12 @@
 EpubReaderMenuActivity::EpubReaderMenuActivity(GfxRenderer& renderer, MappedInputManager& mappedInput,
                                                const std::string& title, const int currentPage, const int totalPages,
                                                const int bookProgressPercent, const uint8_t currentOrientation,
-                                               const bool hasFootnotes)
+                                               const bool hasFootnotes, const bool hasBookmarkHere,
+                                               const std::string& currentBookmarkName)
     : Activity("EpubReaderMenu", renderer, mappedInput),
       menuItems(buildMenuItems(hasFootnotes)),
+      hasBookmarkHere(hasBookmarkHere),
+      currentBookmarkName(currentBookmarkName),
       title(title),
       pendingOrientation(currentOrientation),
       currentPage(currentPage),
@@ -21,7 +24,9 @@ EpubReaderMenuActivity::EpubReaderMenuActivity(GfxRenderer& renderer, MappedInpu
 
 std::vector<EpubReaderMenuActivity::MenuItem> EpubReaderMenuActivity::buildMenuItems(bool hasFootnotes) {
   std::vector<MenuItem> items;
-  items.reserve(10);
+  items.reserve(12);
+  items.push_back({MenuAction::ADD_BOOKMARK, StrId::STR_ADD_BOOKMARK});
+  items.push_back({MenuAction::MANAGE_BOOKMARKS, StrId::STR_MANAGE_BOOKMARKS});
   items.push_back({MenuAction::SELECT_CHAPTER, StrId::STR_SELECT_CHAPTER});
   if (hasFootnotes) {
     items.push_back({MenuAction::FOOTNOTES, StrId::STR_FOOTNOTES});
@@ -58,6 +63,10 @@ void EpubReaderMenuActivity::loop() {
 
   if (mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
     const auto selectedAction = menuItems[selectedIndex].action;
+    // ADD_BOOKMARK is non-interactive when a bookmark already exists at this page
+    if (selectedAction == MenuAction::ADD_BOOKMARK && hasBookmarkHere) {
+      return;
+    }
     if (selectedAction == MenuAction::ROTATE_SCREEN) {
       // Cycle orientation preview locally; actual rotation happens on menu exit.
       pendingOrientation = (pendingOrientation + 1) % orientationLabels.size();
@@ -111,20 +120,28 @@ void EpubReaderMenuActivity::render(RenderLock&&) {
 
   GUI.drawList(
       renderer, Rect{screen.x, contentTop, screen.width, contentHeight}, menuItems.size(), selectedIndex,
-      [this](int index) { return I18N.get(menuItems[index].labelId); }, nullptr, nullptr,
-      [this](int index) {
+      [this](int index) -> std::string {
+        const auto action = menuItems[index].action;
+        if (action == MenuAction::ADD_BOOKMARK && hasBookmarkHere) {
+          return currentBookmarkName;
+        }
+        return I18N.get(menuItems[index].labelId);
+      },
+      nullptr, nullptr,
+      [this](int index) -> std::string {
         const auto value = menuItems[index].action;
         if (value == MenuAction::ROTATE_SCREEN) {
-          // Render current orientation value on the right edge of the content area.
           return I18N.get(orientationLabels[pendingOrientation]);
         } else if (value == MenuAction::AUTO_PAGE_TURN) {
-          // Render current page turn value on the right edge of the content area.
           return pageTurnLabels[selectedPageTurnOption];
         } else {
           return "";
         }
       },
-      true);
+      true,
+      [this](int index) -> bool {
+        return menuItems[index].action == MenuAction::ADD_BOOKMARK && hasBookmarkHere;
+      });
 
   // Footer / Hints
   const auto labels = mappedInput.mapLabels(tr(STR_BACK), tr(STR_SELECT), tr(STR_DIR_UP), tr(STR_DIR_DOWN));
